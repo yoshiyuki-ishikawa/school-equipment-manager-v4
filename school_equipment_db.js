@@ -200,6 +200,155 @@ class SchoolEquipmentDB {
       }
     });
   }
+
+  /**
+   * 既存のデータを取得し、マスタ差分更新（既存のステータスやメモを維持、新規追加、存在しないものを削除）を行います。
+   * @param {Array<Object>} newItems 新しいマスタ備品データの配列
+   * @returns {Promise<{added: number, updated: number, deleted: number}>} 各処理件数
+   */
+  diffUpdate(newItems) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const db = await this.connect();
+        const transaction = db.transaction(['equipment'], 'readwrite');
+        const store = transaction.objectStore('equipment');
+
+        // 全既存データを取得
+        const getRequest = store.getAll();
+        getRequest.onsuccess = (event) => {
+          const existingItems = event.target.result || [];
+          
+          // 管理番号 (eqCode) をキーにしたマップを作成
+          const existingMap = new Map();
+          existingItems.forEach(item => {
+            if (item.eqCode) {
+              existingMap.set(item.eqCode, item);
+            }
+          });
+
+          const newEqCodes = new Set(newItems.map(item => item.eqCode).filter(Boolean));
+
+          let added = 0;
+          let updated = 0;
+          let deleted = 0;
+
+          // 1. 差分判定と追加・更新
+          newItems.forEach(newItem => {
+            if (!newItem.eqCode) return;
+            const existing = existingMap.get(newItem.eqCode);
+            if (existing) {
+              // 既存あり：ステータスとメモは既存のものを維持
+              // その他のマスタ情報 (name, location, categoryなど) は新しい値に更新
+              const updatedItem = {
+                ...existing, // 既存のID、ステータス、メモなどを保持
+                name: newItem.name || existing.name,
+                normalizedName: newItem.normalizedName || existing.normalizedName,
+                location: newItem.location || existing.location,
+                normalizedLocation: newItem.normalizedLocation || existing.normalizedLocation,
+                category: newItem.category || existing.category,
+                updatedAt: new Date().toISOString()
+              };
+              store.put(updatedItem);
+              updated++;
+            } else {
+              // 新規追加
+              const itemId = newItem.id || 'eq_' + Math.random().toString(36).substr(2, 9);
+              const addedItem = {
+                ...newItem,
+                id: itemId,
+                status: newItem.status || '未着手',
+                memo: newItem.memo || '',
+                updatedAt: new Date().toISOString()
+              };
+              store.put(addedItem);
+              added++;
+            }
+          });
+
+          // 2. 削除 (新マスタに存在しない既存データを削除)
+          existingItems.forEach(existing => {
+            if (existing.eqCode && !newEqCodes.has(existing.eqCode)) {
+              store.delete(existing.id);
+              deleted++;
+            }
+          });
+
+          transaction.oncomplete = () => {
+            resolve({ added, updated, deleted });
+          };
+
+          transaction.onerror = (event) => {
+            reject(new Error(`Diff update transaction error: ${event.target.error}`));
+          };
+        };
+
+        getRequest.onerror = (event) => {
+          reject(new Error(`Failed to fetch existing items for diff update: ${event.target.error}`));
+        };
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * 作業データを合流（同一の管理番号を照合し、ステータスとメモのみ上書き）します。
+   * @param {Array<Object>} mergeItems マージする備品データの配列
+   * @returns {Promise<number>} 更新された件数
+   */
+  mergeUpdate(mergeItems) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const db = await this.connect();
+        const transaction = db.transaction(['equipment'], 'readwrite');
+        const store = transaction.objectStore('equipment');
+
+        // 全既存データを取得
+        const getRequest = store.getAll();
+        getRequest.onsuccess = (event) => {
+          const existingItems = event.target.result || [];
+          
+          // 管理番号 (eqCode) をキーにしたマップを作成
+          const existingMap = new Map();
+          existingItems.forEach(item => {
+            if (item.eqCode) {
+              existingMap.set(item.eqCode, item);
+            }
+          });
+
+          let updated = 0;
+
+          // インポートデータから管理番号を照合し、ステータスとメモのみを上書き更新
+          mergeItems.forEach(mergeItem => {
+            if (!mergeItem.eqCode) return;
+            const existing = existingMap.get(mergeItem.eqCode);
+            if (existing) {
+              // ステータスとメモを更新
+              existing.status = mergeItem.status || existing.status;
+              existing.memo = mergeItem.memo !== undefined ? mergeItem.memo : existing.memo;
+              existing.updatedAt = new Date().toISOString();
+              store.put(existing);
+              updated++;
+            }
+          });
+
+          transaction.oncomplete = () => {
+            resolve(updated);
+          };
+
+          transaction.onerror = (event) => {
+            reject(new Error(`Merge update transaction error: ${event.target.error}`));
+          };
+        };
+
+        getRequest.onerror = (event) => {
+          reject(new Error(`Failed to fetch existing items for merge update: ${event.target.error}`));
+        };
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
 }
 
 // ブラウザ環境とNode/ESM環境の両方で動作するようにエクスポートを設定

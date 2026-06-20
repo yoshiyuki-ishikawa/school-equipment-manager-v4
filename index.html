@@ -619,6 +619,38 @@
         <!-- JavaScriptでマッピング項目を動的生成 -->
       </div>
 
+      <!-- Import Mode Selection -->
+      <label style="margin-top: 12px; font-weight: bold; display: block; margin-bottom: 8px;">取り込みモード選択</label>
+      <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 16px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 10px;">
+        <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+          <input type="radio" name="import-mode" value="clear" checked style="margin-top: 3px;">
+          <div>
+            <strong>① 新年度棚卸し開始（全クリア）</strong>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+              既存データをすべてクリアし、新規データとして登録します。棚卸しステータスは「未着手」、メモは空にリセットされます。
+            </div>
+          </div>
+        </label>
+        <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+          <input type="radio" name="import-mode" value="diff" style="margin-top: 3px;">
+          <div>
+            <strong>② マスタ差分更新（進捗維持）</strong>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+              既存の棚卸し進捗（ステータスやメモ）を維持しつつ、CSVと照合して新規備品を追加し、存在しない備品を削除します。（管理番号で照合）
+            </div>
+          </div>
+        </label>
+        <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+          <input type="radio" name="import-mode" value="merge" style="margin-top: 3px;">
+          <div>
+            <strong>③ 作業データの合流（TSVマージ）</strong>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+              インポートデータの「ステータス」と「メモ」だけを既存データに反映（上書き）します。新規登録や不要データの削除は行いません。（管理番号で照合）
+            </div>
+          </div>
+        </label>
+      </div>
+
       <!-- Preview Area -->
       <label>インポートプレビュー (先頭3件)</label>
       <div class="table-container" style="margin-bottom: 16px; font-size: 0.8rem; max-height: 180px; overflow-y: auto;">
@@ -671,10 +703,26 @@
     // Memo Edit State
     let currentEditId = null;
 
+    // Storage Persistence Request
+    async function requestStoragePersistence() {
+      if (navigator.storage && navigator.storage.persist) {
+        try {
+          const isPersisted = await navigator.storage.persist();
+          log(`ストレージ永続化要求結果: ${isPersisted ? '許可' : '不許可'}`);
+        } catch (e) {
+          log(`ストレージ永続化要求エラー: ${e.message}`);
+        }
+      } else {
+        log('このブラウザはストレージ永続化 API に対応していません。');
+      }
+    }
+
     // Initialize Page Controls
     document.addEventListener('DOMContentLoaded', async () => {
       // Setup Theme toggle
       initTheme();
+      // Request Storage Persistence
+      await requestStoragePersistence();
       // Setup drag and drop / file inputs
       initFileHandlers();
       // Setup event listeners
@@ -1302,16 +1350,43 @@
       const parsedTime = performance.now() - start;
       log(`CSVパース完了: ${items.length} 件 (所要時間: ${parsedTime.toFixed(1)}ms)`);
 
+      // 選択されたインポートモードを取得
+      const importModeActive = document.querySelector('input[name="import-mode"]:checked');
+      const importMode = importModeActive ? importModeActive.value : 'clear';
+
       // Import into IndexedDB
-      log('IndexedDBにインポート中 (バルクインサート)...');
+      let count = 0;
+      let msg = '';
       const insertStart = performance.now();
-      const count = await db.bulkInsert(items);
+
+      if (importMode === 'clear') {
+        log('全クリアモードでインポート実行中...');
+        await db.clearAll();
+        // 全クリアなので、ステータスはすべて「未着手」、メモは「空」
+        const clearItems = items.map(item => ({
+          ...item,
+          status: '未着手',
+          memo: ''
+        }));
+        count = await db.bulkInsert(clearItems);
+        msg = `全クリアインポート完了！\n新規データ ${count} 件を登録しました。`;
+      } else if (importMode === 'diff') {
+        log('マスタ差分更新モードでインポート実行中...');
+        const result = await db.diffUpdate(items);
+        count = result.added + result.updated;
+        msg = `マスタ差分更新完了！\n新規追加: ${result.added} 件\nマスタ更新: ${result.updated} 件\n不要データ削除: ${result.deleted} 件`;
+      } else if (importMode === 'merge') {
+        log('TSVマージモードでインポート実行中...');
+        count = await db.mergeUpdate(items);
+        msg = `作業データの合流（TSVマージ）完了！\n${count} 件のステータスとメモを更新しました。`;
+      }
+
       const insertEnd = performance.now();
-      log(`IndexedDB登録完了: ${count} 件 (所要時間: ${(insertEnd - insertStart).toFixed(1)}ms)`);
+      log(`IndexedDB登録処理完了: (所要時間: ${(insertEnd - insertStart).toFixed(1)}ms)`);
 
       // Reload Cache & Refresh UI
       await loadCacheFromDB();
-      alert(`インポート完了！\n${count}件の備品データを登録しました。`);
+      alert(msg);
     }
 
     // Export entire cache data as TSV (Excel BOM-UTF-8 style)
