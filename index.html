@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>学校備品スマート棚卸し v4.0</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e293b">
+  <style>
+    /* CSS Variables */
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-header: #1e293b;
+      --text-header: #ffffff;
+      --bg-table-header: #f1f5f9;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border-color: #e2e8f0;
+      
+      --color-success: #10b981;
+      --color-success-bg: #e6f4ea;
+      --color-success-dark: #065f46;
+      
+      --color-warning: #f59e0b;
+      --color-warning-bg: #fffbeb;
+      --color-warning-dark: #92400e;
+      
+      --color-danger: #ef4444;
+      --color-danger-bg: #fee2e2;
+      
+      --color-info: #3b82f6;
+      --color-info-bg: #eff6ff;
+      --color-info-dark: #1e40af;
+
+      --active-btn-scale: scale(0.97);
+      --transition-speed: 0.2s;
+      --border-radius: 12px;
+      --touch-min-height: 44px;
+    }
+
+    body.dark-theme {
+      --bg-primary: #0f172a;
+      --bg-card: #1e293b;
+      --bg-header: #0f172a;
+      --text-header: #f8fafc;
+      --bg-table-header: #334155;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --border-color: #334155;
+      
+      --color-success-bg: #064e3b;
+      --color-success-dark: #34d399;
+      
+      --color-warning-bg: #78350f;
+      --color-warning-dark: #fbbf24;
+      
+      --color-danger-bg: #7f1d1d;
+      
+      --color-info-bg: #1e3a8a;
+      --color-info-dark: #93c5fd;
+    }
+
+    /* Global Reset & Base */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "BIZ UDPGothic", sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.5;
+      padding-bottom: 80px; /* Space for undo toast */
+      transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+    }
+
+    /* Layout & Container */
+    header {
+      background-color: var(--bg-header);
+      color: var(--text-header);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    header h1 span.badge {
+      font-size: 0.75rem;
+      background-color: var(--color-info);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 900px) {
+      .container {
+        grid-template-columns: 320px 1fr;
+      }
+      .sidebar {
+        position: sticky;
+        top: 80px;
+        align-self: start;
+      }
+    }
+
+    /* Cards & Panels */
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      margin-bottom: 16px;
+      transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+    }
+
+    .card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    /* Touch Controls & Form elements */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-secondary);
+    }
+
+    .input-control {
+      width: 100%;
+      height: var(--touch-min-height);
+      padding: 10px 14px;
+      font-size: 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-control:focus {
+      outline: none;
+      border-color: var(--color-info);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    /* Custom Theme Toggle Button */
+    .btn-toggle-theme {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-header);
+      padding: 6px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    header .btn-toggle-theme {
+      color: var(--text-header);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    /* Interactive Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: var(--touch-min-height);
+      padding: 0 16px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+      gap: 8px;
+      user-select: none;
+    }
+
+    .btn:active {
+      transform: var(--active-btn-scale);
+    }
+
+    .btn-primary {
+      background-color: var(--color-info);
+      color: white;
+    }
+    .btn-primary:hover {
+      background-color: #2563eb;
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-table-header);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover {
+      background-color: var(--border-color);
+    }
+
+    .btn-success {
+      background-color: var(--color-success);
+      color: white;
+    }
+    .btn-success:hover {
+      background-color: #059669;
+    }
+
+    .btn-block {
+      display: flex;
+      width: 100%;
+    }
+
+    /* Dropzone Drag & Drop style */
+    .dropzone {
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      background-color: var(--bg-primary);
+      color: var(--text-secondary);
+      transition: all 0.3s ease;
+      margin-bottom: 12px;
+      font-size: 0.875rem;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--color-info);
+      background-color: var(--color-info-bg);
+      color: var(--color-info-dark);
+    }
+
+    .dropzone-icon {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    /* Grid & Responsive Table */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background-color: var(--bg-card);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+
+    th {
+      background-color: var(--bg-table-header);
+      color: var(--text-primary);
+      font-weight: 600;
+      padding: 12px 16px;
+      border-bottom: 2px solid var(--border-color);
+      user-select: none;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Status Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .status-未着手 { background-color: var(--border-color); color: var(--text-secondary); }
+    .status-済 { background-color: var(--color-success-bg); color: var(--color-success-dark); }
+    .status-要確認 { background-color: var(--color-danger-bg); color: var(--color-danger); }
+
+    /* Action Buttons inside Table */
+    .actions-cell {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      height: 36px;
+      padding: 0 10px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+    }
+
+    /* Floating Toast for Undo & Messages */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      width: 90%;
+      max-width: 500px;
+      background-color: #1e293b;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 30px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1000;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .toast-container.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .toast-message {
+      font-size: 0.9rem;
+    }
+
+    .btn-undo {
+      background-color: var(--color-warning);
+      color: #1e293b;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-undo:active {
+      transform: scale(0.95);
+    }
+
+    /* Pagination controls */
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .pagination-info {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .pagination-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* Log console styling */
+    .log-panel {
+      font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.8rem;
+      background-color: #1e293b;
+      color: #38bdf8;
+      padding: 12px;
+      border-radius: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+    }
+    body.dark-theme .log-panel {
+      background-color: #0f172a;
+      border-color: #1e293b;
+    }
+
+    /* Modal / Popup for Memo editing */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal {
+      background-color: var(--bg-card);
+      border-radius: var(--border-radius);
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: var(--shadow-lg);
+      transform: scale(0.9);
+      transition: transform 0.2s ease;
+    }
+    .modal-overlay.show .modal {
+      transform: scale(1);
+    }
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>📋 学校備品スマート棚卸し <span class="badge">v4.0</span></h1>
+    <button class="btn-toggle-theme" id="theme-toggle-btn" aria-label="テーマ切替">
+      <span>🌓</span> テーマ切替
+    </button>
+  </header>
+
+  <div class="container">
+    <!-- Sidebar Controls -->
+    <div class="sidebar">
+      <div class="card">
+        <h2>🛠️ データ管理</h2>
+        
+        <!-- Dropzone -->
+        <label>CSVインポート</label>
+        <div class="dropzone" id="csv-dropzone">
+          <span class="dropzone-icon">📥</span>
+          ここにCSVファイルをドロップするか<br>
+          <strong>クリックして選択</strong>
+          <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+        </div>
+
+        <button class="btn btn-secondary btn-block" id="btn-export-tsv" style="margin-bottom: 12px;">
+          📤 TSVエクスポート (Excel用)
+        </button>
+        
+        <button class="btn btn-primary btn-block" id="btn-demo-data">
+          ⚡ 3万件デモデータを生成
+        </button>
+        
+        <div style="margin-top: 12px; font-size: 0.8rem; color: var(--text-secondary);">
+          <span id="db-status">状態: 未ロード</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📜 操作ログ</h2>
+        <div class="log-panel" id="console-log">システム待機中...</div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <div class="card">
+        <h2>🔍 高速フィルタリング</h2>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px; min-width: 0;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="search-input">検索キーワード (スペース区切りでAND検索 / ひらがな・大文字・半角全角を吸収)</label>
+            <input type="text" id="search-input" class="input-control" placeholder="例: りか けんびきょう R2-14">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="status-filter">ステータス</label>
+              <select id="status-filter" class="input-control">
+                <option value="すべて">すべて</option>
+                <option value="未着手">未着手</option>
+                <option value="済">済</option>
+                <option value="要確認">要確認</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="location-filter">主要設置場所</label>
+              <select id="location-filter" class="input-control">
+                <option value="すべて">すべて</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">
+          <div>
+            <strong>検索結果:</strong> <span id="search-results-count" style="color: var(--text-primary); font-weight: bold;">0 件</span> 
+            (検索所要時間: <span id="search-time">-</span> ms)
+          </div>
+        </div>
+
+        <!-- Table View -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 15%">管理番号</th>
+                <th style="width: 25%">備品名</th>
+                <th style="width: 20%">設置場所</th>
+                <th style="width: 15%">カテゴリ</th>
+                <th style="width: 10%">ステータス</th>
+                <th style="width: 15%">アクション / メモ</th>
+              </tr>
+            </thead>
+            <tbody id="results-body">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-secondary);">データがロードされていません。デモ生成またはCSVインポートを行ってください。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar">
+          <div class="pagination-info" id="pagination-info">
+            表示中: 0 - 0 件 / 合計 0 件
+          </div>
+          <div class="pagination-btns">
+            <button class="btn btn-secondary btn-action" id="btn-prev-page">◀ 前へ</button>
+            <button class="btn btn-secondary btn-action" id="btn-next-page">次へ ▶</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast (Undo Notification) -->
+  <div class="toast-container" id="undo-toast">
+    <div class="toast-message" id="toast-message">ステータスを「済」に変更しました</div>
+    <button class="btn-undo" id="btn-undo-action">↩️ 取り消す</button>
+  </div>
+
+  <!-- Memo Edit Modal -->
+  <div class="modal-overlay" id="memo-modal-overlay">
+    <div class="modal">
+      <div class="modal-title">📝 メモの編集</div>
+      <div class="form-group">
+        <label id="modal-eq-label">備品管理番号: -</label>
+        <input type="text" id="modal-memo-input" class="input-control" placeholder="メモを入力してください">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-action" id="btn-modal-cancel">キャンセル</button>
+        <button class="btn btn-primary btn-action" id="btn-modal-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSV Import Wizard Modal -->
+  <div class="modal-overlay" id="csv-modal-overlay">
+    <div class="modal" style="max-width: 600px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-title">📥 CSVインポートウィザード</div>
+      <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+        CSVの各列とシステムの登録項目を紐づけてください。
+      </div>
+      
+      <!-- Mapping Form -->
+      <div id="mapping-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; max-height: 250px; overflow-y: auto; padding-right: 4px;">
+        <!-- JavaScriptでマッピング項目を動的生成 -->
+      </div>
+
+      <!-- Preview Area -->
+      <label>インポートプレビュー (先頭3件)</label>
+      <div class="table-container" style="margin-bottom: 16px; font-size: 0.8rem; max-height: 180px; overflow-y: auto;">
+        <table>
+          <thead>
+            <tr id="preview-thead">
+              <!-- headers -->
+            </tr>
+          </thead>
+          <tbody id="preview-tbody">
+            <!-- preview rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-actions" style="margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border-color);">
+        <button class="btn btn-secondary btn-action" id="btn-csv-modal-cancel">キャンセル</button>
+        <button class="btn btn-primary btn-action" id="btn-csv-modal-import">インポート実行</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="./school_equipment_db.js"></script>
+  <script src="./school_equipment_search.js"></script>
+  <script src="./school_equipment_generator.js"></script>
+
+  <script>
+    // Console and cache variables
+    const logOutput = document.getElementById('console-log');
+    function log(msg) {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+      logOutput.innerText += `\n[${timeStr}] ${msg}`;
+      logOutput.scrollTop = logOutput.scrollHeight;
+    }
+
+    const db = new SchoolEquipmentDB();
+    const searchEngine = new SchoolEquipmentSearch();
+    
+    // Pagination & Search States
+    let filteredList = [];
+    let currentPage = 1;
+    const itemsPerPage = 50;
+
+    // Undo Stack
+    const undoStack = [];
+    let toastTimeout = null;
+
+    // Memo Edit State
+    let currentEditId = null;
+
+    // Initialize Page Controls
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Setup Theme toggle
+      initTheme();
+      // Setup drag and drop / file inputs
+      initFileHandlers();
+      // Setup event listeners
+      initEventListeners();
+      // Load cache
+      await loadCacheFromDB();
+    });
+
+    // 1. Theme Configuration
+    function initTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        document.body.className = savedTheme;
+      } else {
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.body.className = systemPrefersDark ? 'dark-theme' : 'light-theme';
+      }
+
+      document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+        if (document.body.classList.contains('dark-theme')) {
+          document.body.className = 'light-theme';
+        } else {
+          document.body.className = 'dark-theme';
+        }
+        localStorage.setItem('theme', document.body.className);
+        log(`テーマを ${document.body.classList.contains('dark-theme') ? 'ダーク' : 'ライト'} に変更しました。`);
+      });
+    }
+
+    // 2. Load and refresh data from IndexedDB
+    async function loadCacheFromDB() {
+      try {
+        log('IndexedDBから全データをキャッシュにロード中...');
+        const start = performance.now();
+        const allItems = await db.getAll();
+        const end = performance.now();
+        
+        log(`全件取得: ${allItems.length} 件 (${(end - start).toFixed(1)}ms)`);
+        
+        searchEngine.setCache(allItems);
+        document.getElementById('db-status').innerText = `状態: ロード済 (${allItems.length} 件)`;
+        
+        // Build Location filter dropdown dynamically
+        buildLocationFilter(allItems);
+
+        doSearch();
+      } catch (err) {
+        log(`データ読み込みエラー: ${err.message}`);
+        document.getElementById('db-status').innerText = '状態: ロードエラー';
+      }
+    }
+
+    // Build location options
+    function buildLocationFilter(items) {
+      const select = document.getElementById('location-filter');
+      const prevVal = select.value;
+      
+      // Get unique main locations (e.g. "職員室" from "職員室 棚1-2")
+      const locationsSet = new Set();
+      items.forEach(item => {
+        if (item.location) {
+          const mainLoc = item.location.split(' ')[0];
+          locationsSet.add(mainLoc);
+        }
+      });
+
+      const sortedLocs = Array.from(locationsSet).sort();
+      select.innerHTML = '<option value="すべて">すべて</option>' + 
+        sortedLocs.map(loc => `<option value="${loc}">${loc}</option>`).join('');
+
+      if (sortedLocs.includes(prevVal)) {
+        select.value = prevVal;
+      } else {
+        select.value = 'すべて';
+      }
+    }
+
+    // 3. Filtering and Pagination Engine
+    function doSearch() {
+      const query = document.getElementById('search-input').value;
+      const status = document.getElementById('status-filter').value;
+      const location = document.getElementById('location-filter').value;
+
+      const start = performance.now();
+      
+      // Apply primary filters
+      let results = searchEngine.filter(query, status);
+
+      // Apply location filter (matches prefix split of space)
+      if (location !== 'すべて') {
+        results = results.filter(item => item.location && item.location.startsWith(location));
+      }
+      
+      const end = performance.now();
+
+      filteredList = results;
+      document.getElementById('search-results-count').innerText = `${results.length} 件`;
+      document.getElementById('search-time').innerText = (end - start).toFixed(1);
+
+      // Reset to page 1 on new search
+      currentPage = 1;
+      renderTable();
+    }
+
+    // Paginated Render
+    function renderTable() {
+      const tbody = document.getElementById('results-body');
+      const totalCount = filteredList.length;
+      
+      if (totalCount === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">該当する備品はありません。</td></tr>';
+        updatePaginationBar(0, 0, 0);
+        return;
+      }
+
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = Math.min(startIndex + itemsPerPage, totalCount);
+      const itemsToRender = filteredList.slice(startIndex, endIndex);
+
+      tbody.innerHTML = itemsToRender.map(item => `
+        <tr id="row-${item.id}">
+          <td style="font-weight: 600;">${item.eqCode}</td>
+          <td>${escapeHtml(item.name)}</td>
+          <td>${escapeHtml(item.location)}</td>
+          <td>${escapeHtml(item.category)}</td>
+          <td><span class="status-badge status-${item.status}">${item.status}</span></td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-secondary btn-action" onclick="cycleStatus('${item.id}')">🔄 変更</button>
+              <button class="btn btn-secondary btn-action" onclick="openMemoModal('${item.id}')">✏️ メモ</button>
+            </div>
+            <div style="font-size:0.75rem; color: var(--text-secondary); margin-top:4px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.memo || '')}">
+              ${item.memo ? '📝 ' + escapeHtml(item.memo) : ''}
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      updatePaginationBar(startIndex + 1, endIndex, totalCount);
+    }
+
+    function updatePaginationBar(start, end, total) {
+      document.getElementById('pagination-info').innerText = `表示中: ${start} - ${end} 件 / 合計 ${total} 件`;
+      
+      const btnPrev = document.getElementById('btn-prev-page');
+      const btnNext = document.getElementById('btn-next-page');
+
+      btnPrev.disabled = (currentPage === 1 || total === 0);
+      btnNext.disabled = (end >= total || total === 0);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+    }
+
+    // 4. Status Update and Memo Modals
+    window.cycleStatus = async function(id) {
+      const item = searchEngine.cache.find(c => c.id === id);
+      if (!item) return;
+
+      const nextStatusMap = {
+        '未着手': '済',
+        '済': '要確認',
+        '要確認': '未着手'
+      };
+      const nextStatus = nextStatusMap[item.status] || '未着手';
+      const prevStatus = item.status;
+
+      try {
+        const updated = await db.updateItem(id, { status: nextStatus });
+        
+        // Push onto undo stack
+        pushToUndoStack({
+          id: id,
+          type: 'status',
+          prevValue: prevStatus,
+          newValue: nextStatus
+        });
+
+        // Update local memory cache
+        item.status = updated.status;
+        item.updatedAt = updated.updatedAt;
+
+        // Show Toast Feedback
+        showUndoToast(`「${item.name}」を「${nextStatus}」に変更しました`);
+        
+        // Redraw only necessary elements or entire current page
+        renderTable();
+      } catch (err) {
+        log(`ステータス更新エラー: ${err.message}`);
+      }
+    };
+
+    window.openMemoModal = function(id) {
+      const item = searchEngine.cache.find(c => c.id === id);
+      if (!item) return;
+
+      currentEditId = id;
+      document.getElementById('modal-eq-label').innerText = `備品管理番号: ${item.eqCode} (${item.name})`;
+      document.getElementById('modal-memo-input').value = item.memo || '';
+      document.getElementById('memo-modal-overlay').classList.add('show');
+      document.getElementById('modal-memo-input').focus();
+    };
+
+    function closeMemoModal() {
+      document.getElementById('memo-modal-overlay').classList.remove('show');
+      currentEditId = null;
+    }
+
+    async function saveMemo() {
+      if (!currentEditId) return;
+      
+      const item = searchEngine.cache.find(c => c.id === currentEditId);
+      if (!item) return;
+
+      const newMemo = document.getElementById('modal-memo-input').value.trim();
+      const prevMemo = item.memo || '';
+
+      if (newMemo === prevMemo) {
+        closeMemoModal();
+        return;
+      }
+
+      try {
+        const updated = await db.updateItem(currentEditId, { memo: newMemo });
+        
+        pushToUndoStack({
+          id: currentEditId,
+          type: 'memo',
+          prevValue: prevMemo,
+          newValue: newMemo
+        });
+
+        item.memo = updated.memo;
+        item.updatedAt = updated.updatedAt;
+
+        showUndoToast(`「${item.name}」のメモを更新しました`);
+        renderTable();
+        closeMemoModal();
+      } catch (err) {
+        log(`メモ保存エラー: ${err.message}`);
+      }
+    }
+
+    // 5. Undo Operations
+    function pushToUndoStack(action) {
+      // Limit size of undo stack to 50
+      if (undoStack.length >= 50) {
+        undoStack.shift();
+      }
+      undoStack.push(action);
+    }
+
+    function showUndoToast(msg) {
+      const toast = document.getElementById('undo-toast');
+      document.getElementById('toast-message').innerText = msg;
+      
+      toast.classList.add('show');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 7000); // Show for 7 seconds
+    }
+
+    document.getElementById('btn-undo-action').addEventListener('click', async () => {
+      const action = undoStack.pop();
+      if (!action) return;
+
+      try {
+        const item = searchEngine.cache.find(c => c.id === action.id);
+        if (!item) return;
+
+        let updateObj = {};
+        if (action.type === 'status') {
+          updateObj.status = action.prevValue;
+        } else if (action.type === 'memo') {
+          updateObj.memo = action.prevValue;
+        }
+
+        const updated = await db.updateItem(action.id, updateObj);
+        
+        // Sync local cache
+        if (action.type === 'status') {
+          item.status = updated.status;
+        } else if (action.type === 'memo') {
+          item.memo = updated.memo;
+        }
+        item.updatedAt = updated.updatedAt;
+
+        log(`[Undo] 取り消し成功: ${item.eqCode} を「${action.prevValue}」に戻しました`);
+        
+        // Hide toast
+        document.getElementById('undo-toast').classList.remove('show');
+        renderTable();
+      } catch (err) {
+        log(`取り消しエラー: ${err.message}`);
+      }
+    });
+
+    // 6. CSV & TSV Import and Export Logic
+    function initFileHandlers() {
+      const dropzone = document.getElementById('csv-dropzone');
+      const fileInput = document.getElementById('csv-file-input');
+
+      // Click to choose file
+      dropzone.addEventListener('click', () => {
+        fileInput.click();
+      });
+
+      // File Selection
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          handleCsvFile(e.target.files[0]);
+        }
+      });
+
+      // Drag and Drop
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+      });
+
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+          handleCsvFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    // Global variables for CSV Wizard Modal
+    let currentCsvRows = [];
+    let currentCsvMapping = {};
+
+    function openCsvModal() {
+      document.getElementById('csv-modal-overlay').classList.add('show');
+    }
+
+    function closeCsvModal() {
+      document.getElementById('csv-modal-overlay').classList.remove('show');
+      currentCsvRows = [];
+      currentCsvMapping = {};
+      document.getElementById('csv-file-input').value = ''; // Reset file input
+    }
+
+    // Parse and Setup CSV Modal
+    function handleCsvFile(file) {
+      log(`ファイル読み込み開始: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        const text = e.target.result;
+        try {
+          const rows = parseCsvToRows(text);
+          if (rows.length < 2) {
+            alert('CSVに有効なデータ行が見つかりませんでした。ヘッダーとデータが必要です。');
+            return;
+          }
+
+          currentCsvRows = rows;
+          const headers = rows[0].map(h => h.replace(/^\ufeff/, '').trim()); // Strip BOM
+
+          // Smart Matching
+          currentCsvMapping = autoMatchHeaders(headers);
+
+          // Generate form & render preview
+          generateMappingForm(headers, currentCsvMapping);
+          updateCsvPreview(currentCsvRows, currentCsvMapping);
+
+          // Open Modal
+          openCsvModal();
+        } catch (err) {
+          log(`CSV読み込み中にエラーが発生しました: ${err.message}`);
+          alert(`CSV読み込みに失敗しました: ${err.message}`);
+        }
+      };
+
+      reader.onerror = () => {
+        log('ファイルの読み込み中にエラーが発生しました。');
+      };
+
+      reader.readAsText(file);
+    }
+
+    // Parse CSV to 2D Array
+    function parseCsvToRows(text) {
+      const lines = [];
+      let row = [];
+      let inQuotes = false;
+      let currentValue = '';
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (inQuotes) {
+          if (char === '"') {
+            if (nextChar === '"') {
+              currentValue += '"';
+              i++; // skip next quote
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            currentValue += char;
+          }
+        } else {
+          if (char === '"') {
+            inQuotes = true;
+          } else if (char === ',') {
+            row.push(currentValue.trim());
+            currentValue = '';
+          } else if (char === '\r' || char === '\n') {
+            row.push(currentValue.trim());
+            currentValue = '';
+            if (row.length > 0 && row.some(cell => cell !== '')) {
+              lines.push(row);
+            }
+            row = [];
+            if (char === '\r' && nextChar === '\n') {
+              i++; // skip standard \r\n line ending extra char
+            }
+          } else {
+            currentValue += char;
+          }
+        }
+      }
+      
+      // Push remaining values
+      if (currentValue || row.length > 0) {
+        row.push(currentValue.trim());
+        if (row.some(cell => cell !== '')) {
+          lines.push(row);
+        }
+      }
+
+      return lines;
+    }
+
+    // Smart Matching Logic
+    function autoMatchHeaders(headers) {
+      const mapping = {
+        eqCode: -1,
+        name: -1,
+        location: -1,
+        category: -1,
+        status: -1,
+        memo: -1
+      };
+
+      const systemFields = [
+        { key: 'eqCode', keywords: ['管理番号', '備品no', 'eqcode', 'code', '番号'] },
+        { key: 'name', keywords: ['備品名', '品名', '名称', '名前', 'name'] },
+        { key: 'location', keywords: ['配置場所', '設置場所', '場所', 'location', '部屋'] },
+        { key: 'category', keywords: ['カテゴリ', '教科区分', '分類', '区分', 'category'] },
+        { key: 'status', keywords: ['ステータス', '状態', 'status'] },
+        { key: 'memo', keywords: ['メモ', '備考', 'memo', 'コメント'] }
+      ];
+
+      headers.forEach((header, index) => {
+        const lowerHeader = header.toLowerCase();
+        for (const field of systemFields) {
+          if (mapping[field.key] !== -1) continue; // Skip if already matched
+          if (field.keywords.some(kw => lowerHeader.includes(kw))) {
+            mapping[field.key] = index;
+            break;
+          }
+        }
+      });
+
+      // Fallbacks if header labels differ slightly
+      if (mapping.eqCode === -1 && headers.length > 0) mapping.eqCode = 0;
+      if (mapping.name === -1 && headers.length > 1) mapping.name = 1;
+
+      return mapping;
+    }
+
+    // Generate mapping form selects
+    function generateMappingForm(headers, mapping) {
+      const container = document.getElementById('mapping-container');
+      container.innerHTML = '';
+
+      const systemFields = [
+        { key: 'eqCode', label: '管理番号 (必須)' },
+        { key: 'name', label: '備品名 (必須)' },
+        { key: 'location', label: '設置場所' },
+        { key: 'category', label: 'カテゴリ' },
+        { key: 'status', label: 'ステータス' },
+        { key: 'memo', label: 'メモ' }
+      ];
+
+      systemFields.forEach(field => {
+        const formGroup = document.createElement('div');
+        formGroup.className = 'form-group';
+        
+        const label = document.createElement('label');
+        label.innerText = field.label;
+        
+        const select = document.createElement('select');
+        select.className = 'input-control';
+        select.id = `map-select-${field.key}`;
+
+        // Option for "Not Mapped"
+        const optNone = document.createElement('option');
+        optNone.value = '-1';
+        optNone.innerText = '(選択しない/既定値)';
+        select.appendChild(optNone);
+
+        headers.forEach((header, index) => {
+          const opt = document.createElement('option');
+          opt.value = index;
+          opt.innerText = `${index + 1}: ${header}`;
+          if (mapping[field.key] === index) {
+            opt.selected = true;
+          }
+          select.appendChild(opt);
+        });
+
+        select.addEventListener('change', () => {
+          mapping[field.key] = parseInt(select.value);
+          updateCsvPreview(currentCsvRows, mapping);
+        });
+
+        formGroup.appendChild(label);
+        formGroup.appendChild(select);
+        container.appendChild(formGroup);
+      });
+    }
+
+    // Update real-time preview (first 3 rows)
+    function updateCsvPreview(rows, mapping) {
+      const tbody = document.getElementById('preview-tbody');
+      const thead = document.getElementById('preview-thead');
+      
+      thead.innerHTML = `
+        <th>管理番号</th>
+        <th>備品名</th>
+        <th>設置場所</th>
+        <th>カテゴリ</th>
+        <th>ステータス</th>
+        <th>メモ</th>
+      `;
+
+      tbody.innerHTML = '';
+      
+      const previewRows = rows.slice(1, 4);
+      
+      if (previewRows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">プレビュー可能なデータがありません</td></tr>';
+        return;
+      }
+
+      previewRows.forEach(row => {
+        const eqCode = mapping.eqCode !== -1 ? row[mapping.eqCode] || '' : '';
+        const name = mapping.name !== -1 ? row[mapping.name] || '' : '';
+        const location = mapping.location !== -1 ? row[mapping.location] || '' : '';
+        const category = mapping.category !== -1 ? row[mapping.category] || '' : '';
+        const status = (mapping.status !== -1 && row[mapping.status]) ? row[mapping.status] : '未着手';
+        const memo = mapping.memo !== -1 ? row[mapping.memo] || '' : '';
+
+        tbody.innerHTML += `
+          <tr>
+            <td style="font-weight: 600;">${escapeHtml(eqCode) || '<空・登録不可>'}</td>
+            <td>${escapeHtml(name) || '<空・登録不可>'}</td>
+            <td>${escapeHtml(location)}</td>
+            <td>${escapeHtml(category)}</td>
+            <td><span class="status-badge status-${['未着手','済','要確認'].includes(status) ? status : '未着手'}">${status || '未着手'}</span></td>
+            <td>${escapeHtml(memo)}</td>
+          </tr>
+        `;
+      });
+    }
+
+    // Execute Import with mapping
+    async function executeCsvImport(rows, mapping) {
+      if (mapping.eqCode === -1 || mapping.name === -1) {
+        alert('「管理番号」と「備品名」のマッピングは必須です。');
+        return;
+      }
+
+      const items = [];
+      const start = performance.now();
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.length <= Math.max(mapping.eqCode, mapping.name)) continue;
+
+        const eqCode = row[mapping.eqCode];
+        const name = row[mapping.name];
+        if (!eqCode || !name) continue; // Skip invalid rows
+
+        const location = mapping.location !== -1 ? row[mapping.location] || '' : '';
+        const category = mapping.category !== -1 ? row[mapping.category] || '' : '';
+        const status = (mapping.status !== -1 && row[mapping.status]) ? row[mapping.status] : '未着手';
+        const memo = mapping.memo !== -1 ? row[mapping.memo] || '' : '';
+
+        // 一意なIDの付与
+        const id = 'eq_' + Math.random().toString(36).substr(2, 9);
+
+        items.push({
+          id,
+          eqCode,
+          name,
+          normalizedName: SchoolEquipmentSearch.normalize(name),
+          location,
+          normalizedLocation: SchoolEquipmentSearch.normalize(location),
+          category,
+          status: ['未着手', '済', '要確認'].includes(status) ? status : '未着手',
+          memo,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      const parsedTime = performance.now() - start;
+      log(`CSVパース完了: ${items.length} 件 (所要時間: ${parsedTime.toFixed(1)}ms)`);
+
+      // Import into IndexedDB
+      log('IndexedDBにインポート中 (バルクインサート)...');
+      const insertStart = performance.now();
+      const count = await db.bulkInsert(items);
+      const insertEnd = performance.now();
+      log(`IndexedDB登録完了: ${count} 件 (所要時間: ${(insertEnd - insertStart).toFixed(1)}ms)`);
+
+      // Reload Cache & Refresh UI
+      await loadCacheFromDB();
+      alert(`インポート完了！\n${count}件の備品データを登録しました。`);
+    }
+
+    // Export entire cache data as TSV (Excel BOM-UTF-8 style)
+    function exportTSV() {
+      const items = searchEngine.cache;
+      if (items.length === 0) {
+        alert('エクスポートするデータがありません。先にデモデータを生成するかインポートしてください。');
+        return;
+      }
+
+      log('TSVエクスポートデータの生成中...');
+      const headers = ['管理番号', '備品名', '設置場所', 'カテゴリ', 'ステータス', 'メモ', '最終更新日時'];
+      
+      const rows = items.map(item => [
+        item.eqCode,
+        item.name || '',
+        item.location || '',
+        item.category || '',
+        item.status || '未着手',
+        item.memo || '',
+        item.updatedAt || ''
+      ]);
+
+      const tsvContent = [headers.join('\t')]
+        .concat(rows.map(r => r.map(val => {
+          // Escape quotes and tabs if any, replace with spaces for simplicity
+          return String(val).replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
+        }).join('\t')))
+        .join('\r\n');
+
+      // Excel UTF-8 BOM
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+      const blob = new Blob([bom, tsvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
+      
+      const now = new Date();
+      const dateStr = now.getFullYear() + 
+        String(now.getMonth() + 1).padStart(2, '0') + 
+        String(now.getDate()).padStart(2, '0') + '_' + 
+        String(now.getHours()).padStart(2, '0') + 
+        String(now.getMinutes()).padStart(2, '0') + 
+        String(now.getSeconds()).padStart(2, '0');
+
+      const fileName = `school_equipment_inventory_${dateStr}.tsv`;
+      
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      log(`TSVエクスポート完了: ${fileName}`);
+    }
+
+    // 7. General event wiring
+    function initEventListeners() {
+      // 30,000 Dummy Generation
+      document.getElementById('btn-demo-data').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-demo-data');
+        btn.disabled = true;
+        btn.innerText = '⏳ 生成中...';
+        log('--- 3万件のデモデータ生成＆登録処理を開始します ---');
+        
+        // Let UI thread render the loading state
+        setTimeout(async () => {
+          try {
+            const result = await SchoolEquipmentGenerator.resetAndImportDemoData(30000);
+            log(`ダミー生成: ${result.generationTimeMs.toFixed(1)}ms`);
+            log(`IndexedDBインサート: ${result.insertTimeMs.toFixed(1)}ms`);
+            
+            await loadCacheFromDB();
+            alert(`3万件のデモデータの生成とインポートが完了しました！\n検索をお試しください。`);
+          } catch (err) {
+            log(`デモデータ生成中にエラーが発生しました: ${err.message}`);
+          } finally {
+            btn.disabled = false;
+            btn.innerText = '⚡ 3万件デモデータを生成';
+          }
+        }, 50);
+      });
+
+      // Export TSV
+      document.getElementById('btn-export-tsv').addEventListener('click', exportTSV);
+
+      // Search Inputs
+      document.getElementById('search-input').addEventListener('input', doSearch);
+      document.getElementById('status-filter').addEventListener('change', doSearch);
+      document.getElementById('location-filter').addEventListener('change', doSearch);
+
+      // Pagination events
+      document.getElementById('btn-prev-page').addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderTable();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+      document.getElementById('btn-next-page').addEventListener('click', () => {
+        const totalCount = filteredList.length;
+        if (currentPage * itemsPerPage < totalCount) {
+          currentPage++;
+          renderTable();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+
+      // Modal Events
+      document.getElementById('btn-modal-cancel').addEventListener('click', closeMemoModal);
+      document.getElementById('btn-modal-save').addEventListener('click', saveMemo);
+      document.getElementById('memo-modal-overlay').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('memo-modal-overlay')) {
+          closeMemoModal();
+        }
+      });
+      document.getElementById('modal-memo-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          saveMemo();
+        } else if (e.key === 'Escape') {
+          closeMemoModal();
+        }
+      });
+
+      // CSV Modal Events
+      document.getElementById('btn-csv-modal-cancel').addEventListener('click', closeCsvModal);
+      document.getElementById('btn-csv-modal-import').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-csv-modal-import');
+        btn.disabled = true;
+        btn.innerText = '⏳ インポート中...';
+        try {
+          await executeCsvImport(currentCsvRows, currentCsvMapping);
+          closeCsvModal();
+        } catch (err) {
+          log(`インポート実行エラー: ${err.message}`);
+          alert(`インポートに失敗しました: ${err.message}`);
+        } finally {
+          btn.disabled = false;
+          btn.innerText = 'インポート実行';
+        }
+      });
+      document.getElementById('csv-modal-overlay').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('csv-modal-overlay')) {
+          closeCsvModal();
+        }
+      });
+    }
+
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => {
+            console.log('Service Worker registered successfully with scope: ', reg.scope);
+          })
+          .catch((err) => {
+            console.error('Service Worker registration failed: ', err);
+          });
+      });
+    }
+  </script>
+</body>
+</html>
