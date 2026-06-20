@@ -455,9 +455,13 @@
       box-shadow: var(--shadow-lg);
       transform: scale(0.9);
       transition: transform 0.2s ease;
+      pointer-events: auto; /* ensure pointer events are active inside modal */
     }
     .modal-overlay.show .modal {
       transform: scale(1);
+    }
+    .modal select, .modal input, .modal button, .modal label {
+      pointer-events: auto; /* ensure interactive components accept taps natively */
     }
     .modal-title {
       font-size: 1.1rem;
@@ -615,7 +619,7 @@
       </div>
       
       <!-- Mapping Form -->
-      <div id="mapping-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; max-height: 250px; overflow-y: auto; padding-right: 4px;">
+      <div id="mapping-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-bottom: 16px; max-height: 380px; overflow-y: auto; padding: 8px 8px 24px 8px;">
         <!-- JavaScriptでマッピング項目を動的生成 -->
       </div>
 
@@ -1529,7 +1533,7 @@
         }
       });
       document.getElementById('csv-modal-overlay').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('csv-modal-overlay')) {
+        if (e.target === e.currentTarget) {
           closeCsvModal();
         }
       });
